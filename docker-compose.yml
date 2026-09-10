@@ -1,0 +1,28 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  estimation-service:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      REDIS_ADDR: redis:6379
+      REDIS_DB: "0"
+      ES_ADDR: ":8080"
+      ES_LOG_LEVEL: info
+      ES_LOG_FORMAT: text
+      ES_DEFAULT_MODE: approximate
+      ES_RETENTION_DAYS: "14"
+      ES_SEGMENTS: "sports:approximate,premium_users:exact,high_value_buyers:exact,casual_readers:approximate"
+    depends_on:
+      redis:
+        condition: service_healthy
