@@ -57,7 +57,7 @@ func TestExactAddAndCountDedupesWithinAndAcrossDays(t *testing.T) {
 	}
 }
 
-func TestExactIgnoresBucketsOlderThanRetention(t *testing.T) {
+func TestExactIgnoresUsersOlderThanRetention(t *testing.T) {
 	_, rdb := setupRedis(t)
 	old := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	now := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)

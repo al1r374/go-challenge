@@ -28,8 +28,8 @@ No ChatGPT web session, Copilot, or Claude Code CLI were used for this challenge
 - Verified by running `go test ./...` and `go vet ./...`.
 
 ### Implementation
-- Core logic (time-buckets, Exact `ZADD`/`ZUNIONSTORE`, Approximate `PFADD`/`PFMERGE`, service routing, HTTP handlers) was AI-generated in one session.
-- I reviewed key choices: UTC daily keys, 15-day TTL slack, default approximate mode, no cross-mode data migration on runtime mode change.
+- Core logic (time-buckets, Exact `ZADD`/`ZCOUNT`, Approximate `PFADD`/`PFMERGE`, service routing, HTTP handlers) was AI-generated; Exact later dropped daily buckets for one ZSET per segment (score = last-seen).
+- I reviewed key choices: UTC retention window, Exact prune-on-write + ZCOUNT, Approximate daily HLL keys with TTL slack, default approximate mode, no cross-mode data migration on runtime mode change.
 
 ### Debugging
 - No major runtime Redis bugs in this session; tests used miniredis.

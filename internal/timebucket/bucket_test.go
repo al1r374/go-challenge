@@ -47,9 +47,18 @@ func TestNormalizeRetention(t *testing.T) {
 
 func TestKeyFormat(t *testing.T) {
 	id := timebucket.ID{Day: time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)}
-	got := id.Key("es:exact", "sports")
-	want := "es:exact:sports:2026-09-11"
+	got := id.Key("es:approx", "sports")
+	want := "es:approx:sports:2026-09-11"
 	if got != want {
+		t.Fatalf("got %s want %s", got, want)
+	}
+}
+
+func TestWindowStart(t *testing.T) {
+	now := time.Date(2026, 9, 11, 15, 30, 0, 0, time.UTC)
+	got := timebucket.WindowStart(timebucket.FixedClock{T: now}, 14)
+	want := time.Date(2026, 8, 29, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
 		t.Fatalf("got %s want %s", got, want)
 	}
 }

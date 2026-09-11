@@ -28,12 +28,11 @@ const (
 	EventESCountRejected   = "es.count_rejected"
 	EventESCountFailed     = "es.count_failed"
 
-	EventRedisZAdd              = "redis.zadd"
-	EventRedisZAddFailed        = "redis.zadd_failed"
-	EventRedisZCardFailed       = "redis.zcard_failed"
-	EventRedisZUnionStoreFailed = "redis.zunionstore_failed"
-	EventRedisExistsFailed      = "redis.exists_failed"
-	EventRedisExactCountBuckets = "redis.exact_count_buckets"
+	EventRedisZAdd         = "redis.zadd"
+	EventRedisZAddFailed   = "redis.zadd_failed"
+	EventRedisZCountFailed = "redis.zcount_failed"
+	EventRedisExactCount   = "redis.exact_count"
+	EventRedisExistsFailed = "redis.exists_failed"
 
 	EventRedisPFAdd         = "redis.pfadd"
 	EventRedisPFAddFailed   = "redis.pfadd_failed"

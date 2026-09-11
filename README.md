@@ -12,9 +12,9 @@ USS ──POST /v1/events──► API ──► Estimation Service
                     ┌─────────────────┴─────────────────┐
                     ▼                                   ▼
             ExactStore (ZSET)                 ApproximateStore (HLL)
+              one key / segment                 daily buckets (14d)
                     │                                   │
                     └──────────── Redis ────────────────┘
-                         daily time-buckets (14 days)
 ```
 
 ### Package structure
@@ -26,7 +26,7 @@ USS ──POST /v1/events──► API ──► Estimation Service
 | `internal/service` | Domain routing: pick Exact vs Approximate from config |
 | `internal/config` | Env settings (`FromEnv`); `server.go` / `redis.go` / `logging.go` |
 | `internal/store` | Redis backends behind `SegmentStore` interfaces |
-| `internal/timebucket` | Daily bucket IDs, active retention window, TTL helpers |
+| `internal/timebucket` | Retention window bounds; daily bucket IDs/TTL for Approximate |
 | `examples/` | Programmatic `Add` / `Count` usage |
 
 ### Main interfaces
@@ -45,30 +45,33 @@ Add / Count / Mode
 
 Implementations are swappable (e.g. another datastore) without changing the API layer.
 
-## Time-buckets (Exact and Approximate)
+## Retention window
 
-Time is split into **UTC calendar days**. Each day gets its own Redis key:
+Both modes use the same **UTC calendar** window (`ES_RETENTION_DAYS`, default 14). Storage differs:
 
 | Mode | Key pattern | Redis type |
 |------|-------------|------------|
-| Exact | `es:exact:{segment}:{YYYY-MM-DD}` | Sorted Set (`ZADD` member=`user_id`) |
+| Exact | `es:exact:{segment}` | Sorted Set (`ZADD` member=`user_id`, score=last-seen unix) |
 | Approximate | `es:approx:{segment}:{YYYY-MM-DD}` | HyperLogLog (`PFADD`) |
 
-- **Add**: write only into **today’s** bucket; set TTL ≈ retentionDays+1 so Redis drops stale keys.
-- **Count**: consider only the **last N** bucket keys (`ES_RETENTION_DAYS`, default 14):
-  - **Exact**: `ZUNIONSTORE` those keys → `ZCARD` (precise unique users across days).
-  - **Approximate**: `PFMERGE` those keys → `PFCOUNT` (~0.81% std. error).
+**Exact**
+- **Add**: `ZADD` into the segment key; prune scores older than the window; set TTL ≈ retentionDays+1.
+- **Count**: `ZCOUNT` for scores ≥ window start (precise unique users).
+
+**Approximate**
+- **Add**: `PFADD` into **today’s** bucket; set TTL ≈ retentionDays+1.
+- **Count**: `PFMERGE` the last N bucket keys → `PFCOUNT` (~0.81% std. error).
 - Buckets older than the retention window are **not** read and eventually expire.
 
-A user seen on day 1 and day 10 still counts as **one** unique user in the window (union / HLL merge).
+A user seen on day 1 and day 10 still counts as **one** unique user in the window.
 
 ## Counting modes — trade-offs
 
 | | Exact (Sorted Set) | Approximate (HyperLogLog) |
 |--|--------------------|---------------------------|
 | Accuracy | Exact | ~0.81% standard error |
-| Memory | O(unique users × days) | ~12 KB per bucket (fixed) |
-| Count cost | Multi-key union; slower at huge cardinality | Cheap merge of ≤N sketches |
+| Memory | O(unique users in window) | ~12 KB per bucket (fixed) |
+| Count cost | Single `ZCOUNT` | Cheap merge of ≤N sketches |
 | Best for | Billing, small/medium segments, audits | Millions of users, dashboards, alerts |
 
 **Default**: if a segment is missing from config → **approximate** (`ES_DEFAULT_MODE`).
@@ -156,7 +159,7 @@ event=redis.pfadd component=store backend=approximate key=es:approx:sports:2026-
 event=es.count component=estimation segment=sports count=2
 event=es.add_rejected code=invalid_input reason="missing user_id or segment"
 event=es.add_failed code=storage_error ...
-event=redis.zunionstore_failed segment=premium_users keys=3 ...
+event=redis.zcount_failed segment=premium_users key=es:exact:premium_users ...
 ```
 
 Constants live in `internal/logging/events.go`. Use `make run LOG_LEVEL=debug` to see Redis key-level events.

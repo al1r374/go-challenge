@@ -3,9 +3,9 @@
 //	ES_ADDR, REDIS_*, ES_LOG_*, ES_RETENTION_DAYS, ES_SEGMENTS, ES_DEFAULT_MODE
 //
 // Trade-off summary (counting modes):
-//   - Exact: precise unique counts via Redis Sorted Sets; memory grows with
-//     unique users × active days.
-//   - Approximate: HyperLogLog (~12KB fixed per bucket); ~0.81% standard error;
+//   - Exact: precise unique counts via one Redis Sorted Set per segment
+//     (score = last-seen); memory grows with unique users in the window.
+//   - Approximate: HyperLogLog (~12KB fixed per daily bucket); ~0.81% standard error;
 //     ideal for high-cardinality segments where exact membership is unnecessary.
 package config
 

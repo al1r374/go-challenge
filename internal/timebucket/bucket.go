@@ -1,19 +1,20 @@
-// Package timebucket divides calendar time into daily buckets used by both
-// Exact (Sorted Set) and Approximate (HyperLogLog) counting backends.
+// Package timebucket defines the calendar retention window and daily keys used
+// by Approximate (HyperLogLog) counting. Exact mode shares the same window
+// bounds but stores one Sorted Set per segment (score = last-seen).
 //
-// How it works
-// ------------
+// Approximate buckets
+// -------------------
 // Time is split into UTC calendar days. Each day gets its own Redis key:
 //
-//	es:{mode}:{segment}:{YYYY-MM-DD}
+//	es:approx:{segment}:{YYYY-MM-DD}
 //
 // Only the last N buckets (retention days, from ES_RETENTION_DAYS) are "active".
 // Older keys are ignored by Count and given a TTL so Redis eventually drops them.
 //
-// Why daily buckets?
-//   - Sliding retention window without scanning every user record.
+// Why daily buckets (Approximate)?
+//   - HLL cannot filter by timestamp; one sketch per day is required.
 //   - Cheap expiry: set TTL ≈ retentionDays+1 on each key at write time.
-//   - Count = union (exact) or merge (HLL) of the last N keys.
+//   - Count = PFMERGE of the last N keys.
 package timebucket
 
 import (
@@ -79,6 +80,14 @@ func Active(clock Clock, retentionDays int) []ID {
 		out = append(out, ID{Day: today.Day.AddDate(0, 0, -i)})
 	}
 	return out
+}
+
+// WindowStart is the UTC midnight of the oldest day in the active retention
+// window (same bound Active uses). Exact mode uses this as the ZCOUNT / prune floor.
+func WindowStart(clock Clock, retentionDays int) time.Time {
+	days := NormalizeRetention(retentionDays)
+	today := Current(clock)
+	return today.Day.AddDate(0, 0, -(days - 1))
 }
 
 // TTL is how long Redis should keep a bucket key.

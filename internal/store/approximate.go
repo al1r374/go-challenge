@@ -153,3 +153,25 @@ func (s *RedisApproximate) Count(ctx context.Context, segment string) (int64, er
 	}
 	return n, nil
 }
+
+func existingKeys(ctx context.Context, rdb redis.Cmdable, keys []string) ([]string, error) {
+	pipe := rdb.Pipeline()
+	cmds := make([]*redis.IntCmd, len(keys))
+	for i, k := range keys {
+		cmds[i] = pipe.Exists(ctx, k)
+	}
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("exists check: %w", err)
+	}
+	out := make([]string, 0, len(keys))
+	for i, cmd := range cmds {
+		n, err := cmd.Result()
+		if err != nil {
+			return nil, err
+		}
+		if n > 0 {
+			out = append(out, keys[i])
+		}
+	}
+	return out, nil
+}
