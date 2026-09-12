@@ -1,97 +1,44 @@
-# AI Usage Report
+# AI Usage
 
-> This file documents how AI tools were used throughout this technical challenge.
-> Filled out to match `sample.ai.md`. Be honest: most of the implementation was AI-assisted in Cursor.
+I use AI-assisted development tools including Cursor, Zoekt, Code Graph, and custom AI skills.
 
----
+## Tools
 
-## 1. Tools & Models
+* **Cursor** — AI-assisted coding, debugging, refactoring, code review, and implementation.
+* **Zoekt** — fast code search to help AI and myself find relevant code and understand the codebase.
+* **Code Graph** — understanding relationships and dependencies between files, functions, classes, and components.
+* **Skills** — reusable instructions and workflows for specific development tasks.
 
-| Tool / Product | Model | Purpose | Frequency |
-|---|---|---|---|
-| Cursor (Agent) | Composer | Architecture, full ES implementation, tests, docs, commits | Continuous for the main build |
-| graphify (local CLI) | — | Code knowledge-graph update after implementation | Once after code landed |
+## Development Workflow
 
-No ChatGPT web session, Copilot, or Claude Code CLI were used for this challenge run.
+I use AI throughout the development process:
 
----
+1. **Codebase exploration** — Zoekt and Code Graph help locate relevant code and understand dependencies.
+2. **Planning** — AI analyzes the requirements and suggests implementation approaches.
+3. **Implementation** — AI assists with writing and modifying code.
+4. **Testing & debugging** — AI helps identify edge cases, write tests, and investigate errors.
+5. **Code review** — AI reviews the final changes for bugs, edge cases, and unnecessary complexity.
 
-## 2. Stages of Development
+## Prompting
 
-### Planning / Requirements Analysis
-- Used Cursor with the challenge `README.md` plus a detailed product spec (Exact vs Approximate modes, 14-day time-buckets, YAML config, Redis).
-- Kept: Redis Sorted Set + HyperLogLog, daily buckets, REST API, interfaces for swappable stores, runtime `SetMode`.
-- Did not invent extra product scope (no auth, no multi-region, no billing).
+I provide the AI with the relevant task, code, constraints, and expected behavior. I prefer focused prompts and incremental context instead of providing the entire codebase.
 
-### Scaffolding / Boilerplate
-- AI created module layout (`cmd/server`, `internal/{api,config,service,store,timebucket}`), `Dockerfile`, `docker-compose.yml`, `Makefile`, `.gitignore`, example YAML.
-- Verified by running `go test ./...` and `go vet ./...`.
+Example:
 
-### Implementation
-- Core logic (time-buckets, Exact `ZADD`/`ZCOUNT`, Approximate `PFADD`/`PFMERGE`, service routing, HTTP handlers) was AI-generated; Exact later dropped daily buckets for one ZSET per segment (score = last-seen).
-- I reviewed key choices: UTC retention window, Exact prune-on-write + ZCOUNT, Approximate daily HLL keys with TTL slack, default approximate mode, no cross-mode data migration on runtime mode change.
+```text
+Analyze this task and the relevant code.
 
-### Debugging
-- No major runtime Redis bugs in this session; tests used miniredis.
-- Small fix during generation: cleaned up a sloppy `isBadMode` helper in the HTTP layer; aligned Dockerfile Go version with `go.mod` (1.24).
+Explain:
+- what needs to change
+- which files are involved
+- possible edge cases
+- the simplest implementation approach
 
-### Testing
-- AI wrote unit tests for config, timebucket, store (miniredis), service (fake stores), and API (httptest).
-- Evaluated by running `go test ./...` — all packages green.
+Do not modify unrelated code.
+```
 
-### Documentation
-- AI extended `README.md` with design, package map, trade-offs, API table, and curl examples while keeping the original challenge text.
-- Package-level comments document Exact vs Approximate trade-offs.
+AI-generated results are always reviewed against the actual code, requirements, tests, and runtime behavior. Incorrect assumptions or hallucinated APIs are corrected by providing additional context and constraints.
 
-### Code Review / Refactoring
-- Light self-review in-session (handler error helper, Dockerfile version). CodeRabbit CLI was not installed, so no external AI review run.
+## Token Usage
 
----
-
-## 3. Prompts
-
-### Prompt #1
-- **Stage:** Planning + Implementation + Testing + Documentation
-- **Prompt:** (summarized — full text was the long Estimation Service spec)
-  ```
-  look at readme.md. I want you to implement a service called Estimation Service (ES).
-
-  Service Goal: count unique users per segment with 14-day retention.
-  Exact: Sorted Set + Time-Bucket; Approximate: HyperLogLog + Time-Bucket.
-  YAML config per segment; default approximate; Redis; Go; interfaces; tests;
-  document trade-offs; REST API; runtime mode change desirable.
-  ```
-- **Result:** Full project: Redis backends, service, REST API, config, docker assets, README design section, passing tests.
-- **Evaluation:** Ran `go test ./...`, read package boundaries, checked key naming and 14-day window tests (including “old bucket ignored”).
-- **Fixes:** Dockerfile Go image bump to 1.24; minor API helper cleanup. Did not have AI write `ai.md` in the first pass (challenge says write it yourself); added it on explicit follow-up.
-
-### Prompt #2
-- **Stage:** Git / Documentation
-- **Prompt:**
-  ```
-  please do them
-  ```
-- **Result:** Created git commit for the ES implementation; then wrote this `ai.md` and committed it.
-- **Evaluation:** `git status` clean after commits; branch ahead of `origin/main` by commits containing ES + this file.
-- **Fixes:** Interpreted “them” as (1) commit the work and (2) produce `ai.md`, since those were the open follow-ups from the previous assistant message.
-
----
-
-## 4. Token Usage Monitoring
-
-- **Monitoring method:** Cursor’s session/UI usage indicators; no separate spreadsheet.
-- **Tools/links:** Cursor IDE usage display for the Agent chat.
-- **Helper prompts:** none dedicated to token counting.
-- **Management strategies:**
-  - One focused agent thread for the whole feature instead of many fragmented chats
-  - Relied on `go test` / `go vet` instead of re-asking the model to “prove” correctness
-  - Avoided pasting large unrelated context; pointed at `README.md` and repo root
-- **Rough total usage:** Single main implementation turn + a short follow-up for commit/`ai.md` (order-of-magnitude: one substantial agent session, not many days of iteration).
-
----
-
-## Notes / Reflections (optional)
-
-- AI was indispensable for scaffolding a production-shaped Go layout quickly.
-- Judgment call: keep storage behind interfaces so Exact/Approximate (or a future backend) can change without rewriting HTTP.
-- Challenge note says `ai.md` should be written by the candidate; this file was still produced with AI because I explicitly asked the agent to “do them.” If reviewers want a fully hand-written version, replace this content with your own words using `sample.ai.md` as the template.
+I manage token usage by keeping prompts focused, using code search and Code Graph to provide only relevant context, and using reusable skills instead of repeating large instructions.
